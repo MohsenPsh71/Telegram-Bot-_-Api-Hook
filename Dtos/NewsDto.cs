@@ -6,5 +6,7 @@
         public string Title { get; set; }
         public string Desc { get; set; }
         public int MessageId { get; set; }
+        public List<int> KeyWords { get; set; }
+
     }
 }

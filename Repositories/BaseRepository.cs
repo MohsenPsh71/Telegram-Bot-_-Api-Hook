@@ -17,7 +17,7 @@ namespace TeckNews.Repositories
         public BaseRepository(TeckNewsContext dbContext)
         {
             _dbContext = dbContext;
-            Entities = _dbContext.Set<TEntity>(); 
+            Entities = _dbContext.Set<TEntity>();
         }
 
         #region Async Method
@@ -26,11 +26,13 @@ namespace TeckNews.Repositories
             return Entities.FindAsync(ids, cancellationToken);
         }
 
-        public virtual async Task AddAsync(TEntity entity, CancellationToken cancellationToken, bool saveNow = true)
+        public virtual async Task<TEntity> AddAsync(TEntity entity, CancellationToken cancellationToken, bool saveNow = true)
         {
-            await Entities.AddAsync(entity, cancellationToken).ConfigureAwait(false);
+            var obj = (await Entities.AddAsync(entity, cancellationToken).ConfigureAwait(false)).Entity;
             if (saveNow)
                 await _dbContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+
+            return obj;
         }
 
         public virtual async Task AddRangeAsync(IEnumerable<TEntity> entities, CancellationToken cancellationToken, bool saveNow = true)
@@ -40,18 +42,20 @@ namespace TeckNews.Repositories
                 await _dbContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         }
 
-        public virtual async Task UpdateAsync(TEntity entity, CancellationToken cancellationToken, bool saveNow = true)
+        public virtual async Task<TEntity> UpdateAsync(TEntity entity, CancellationToken cancellationToken, bool saveNow = true)
         {
-            Entities.Update(entity);
-            
+            var obj = Entities.Update(entity).Entity;
+
             if (saveNow)
                 await _dbContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+
+            return obj;
         }
 
         public virtual async Task UpdateRangeAsync(IEnumerable<TEntity> entities, CancellationToken cancellationToken, bool saveNow = true)
         {
             Entities.UpdateRange(entities);
-            
+
             if (saveNow)
                 await _dbContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         }
@@ -79,11 +83,14 @@ namespace TeckNews.Repositories
             return Entities.Find(ids);
         }
 
-        public virtual void Add(TEntity entity, bool saveNow = true)
+        public virtual TEntity Add(TEntity entity, bool saveNow = true)
         {
-            Entities.Add(entity);
+            var obj = Entities.Add(entity).Entity;
+
             if (saveNow)
                 _dbContext.SaveChanges();
+
+            return obj;
         }
 
         public virtual void AddRange(IEnumerable<TEntity> entities, bool saveNow = true)
@@ -93,11 +100,13 @@ namespace TeckNews.Repositories
                 _dbContext.SaveChanges();
         }
 
-        public virtual void Update(TEntity entity, bool saveNow = true)
+        public virtual TEntity Update(TEntity entity, bool saveNow = true)
         {
-            Entities.Update(entity);
+            var obj = Entities.Update(entity).Entity;
             if (saveNow)
                 _dbContext.SaveChanges();
+
+            return obj;
         }
 
         public virtual void UpdateRange(IEnumerable<TEntity> entities, bool saveNow = true)
