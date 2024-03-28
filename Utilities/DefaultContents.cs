@@ -1,6 +1,6 @@
 ﻿using TeckNews.Utilities;
 
-namespace FarzamNews.Utilities
+namespace TeckNews.Utilities
 {
     public static class DefaultContents
     {

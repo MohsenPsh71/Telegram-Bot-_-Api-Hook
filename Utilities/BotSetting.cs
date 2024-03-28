@@ -1,4 +1,4 @@
-﻿namespace FarzamNews.Utilities
+﻿namespace TeckNews.Utilities
 {
     public class BotSetting
     {

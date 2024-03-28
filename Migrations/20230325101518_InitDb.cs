@@ -2,7 +2,7 @@
 
 #nullable disable
 
-namespace FarzamNews.Migrations
+namespace TeckNews.Migrations
 {
     /// <inheritdoc />
     public partial class InitDb : Migration

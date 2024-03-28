@@ -1,6 +1,10 @@
 using TeckNews.Data;
+using TeckNews.Entities;
+using TeckNews.Repositories;
 using TeckNews.Utilities;
 using Microsoft.EntityFrameworkCore;
+using TeckNews.Entities;
+using TeckNews.Utilities;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -10,6 +14,13 @@ builder.Services.AddDbContext<TeckNewsContext>(options =>
 {
     options.UseSqlServer(builder.Configuration.GetConnectionString("DbConnection"));
 });
+
+builder.Services.AddScoped<IBaseRepository<User>, BaseRepository<User>>();
+builder.Services.AddScoped<IBaseRepository<News>, BaseRepository<News>>();
+builder.Services.AddScoped<IBaseRepository<NewsKeyWord>, BaseRepository<NewsKeyWord>>();
+builder.Services.AddScoped<IBaseRepository<KeyWord>, BaseRepository<KeyWord>>();
+builder.Services.AddScoped<IBaseRepository<NewsUserCollection>, BaseRepository<NewsUserCollection>>();
+builder.Services.AddScoped<IBaseRepository<UserActivity>, BaseRepository<UserActivity>>();
 
 builder.Services.AddControllers();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle

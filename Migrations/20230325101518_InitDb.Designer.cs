@@ -9,7 +9,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
 
-namespace FarzamNews.Migrations
+namespace TeckNews.Migrations
 {
     [DbContext(typeof(TeckNewsContext))]
     [Migration("20230325101518_InitDb")]
@@ -25,7 +25,7 @@ namespace FarzamNews.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
-            modelBuilder.Entity("FarzamNews.Entities.KeyWord", b =>
+            modelBuilder.Entity("TeckNews.Entities.KeyWord", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -42,7 +42,7 @@ namespace FarzamNews.Migrations
                     b.ToTable("KeyWords");
                 });
 
-            modelBuilder.Entity("FarzamNews.Entities.News", b =>
+            modelBuilder.Entity("TeckNews.Entities.News", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -66,7 +66,7 @@ namespace FarzamNews.Migrations
                     b.ToTable("News");
                 });
 
-            modelBuilder.Entity("FarzamNews.Entities.NewsKeyWord", b =>
+            modelBuilder.Entity("TeckNews.Entities.NewsKeyWord", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -89,7 +89,7 @@ namespace FarzamNews.Migrations
                     b.ToTable("NewsKeyWords");
                 });
 
-            modelBuilder.Entity("FarzamNews.Entities.NewsUserCollection", b =>
+            modelBuilder.Entity("TeckNews.Entities.NewsUserCollection", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -112,7 +112,7 @@ namespace FarzamNews.Migrations
                     b.ToTable("NewsUserCollections");
                 });
 
-            modelBuilder.Entity("FarzamNews.Entities.User", b =>
+            modelBuilder.Entity("TeckNews.Entities.User", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -146,7 +146,7 @@ namespace FarzamNews.Migrations
                     b.ToTable("Users");
                 });
 
-            modelBuilder.Entity("FarzamNews.Entities.UserActivity", b =>
+            modelBuilder.Entity("TeckNews.Entities.UserActivity", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -167,15 +167,15 @@ namespace FarzamNews.Migrations
                     b.ToTable("UserActivities");
                 });
 
-            modelBuilder.Entity("FarzamNews.Entities.NewsKeyWord", b =>
+            modelBuilder.Entity("TeckNews.Entities.NewsKeyWord", b =>
                 {
-                    b.HasOne("FarzamNews.Entities.KeyWord", "KeyWord")
+                    b.HasOne("TeckNews.Entities.KeyWord", "KeyWord")
                         .WithMany()
                         .HasForeignKey("KeyWordId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("FarzamNews.Entities.News", "News")
+                    b.HasOne("TeckNews.Entities.News", "News")
                         .WithMany()
                         .HasForeignKey("NewsId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -186,15 +186,15 @@ namespace FarzamNews.Migrations
                     b.Navigation("News");
                 });
 
-            modelBuilder.Entity("FarzamNews.Entities.NewsUserCollection", b =>
+            modelBuilder.Entity("TeckNews.Entities.NewsUserCollection", b =>
                 {
-                    b.HasOne("FarzamNews.Entities.News", "News")
+                    b.HasOne("TeckNews.Entities.News", "News")
                         .WithMany()
                         .HasForeignKey("NewsId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("FarzamNews.Entities.User", "User")
+                    b.HasOne("TeckNews.Entities.User", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -205,18 +205,18 @@ namespace FarzamNews.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("FarzamNews.Entities.User", b =>
+            modelBuilder.Entity("TeckNews.Entities.User", b =>
                 {
-                    b.HasOne("FarzamNews.Entities.User", "Parent")
+                    b.HasOne("TeckNews.Entities.User", "Parent")
                         .WithMany()
                         .HasForeignKey("ParentId");
 
                     b.Navigation("Parent");
                 });
 
-            modelBuilder.Entity("FarzamNews.Entities.UserActivity", b =>
+            modelBuilder.Entity("TeckNews.Entities.UserActivity", b =>
                 {
-                    b.HasOne("FarzamNews.Entities.User", "User")
+                    b.HasOne("TeckNews.Entities.User", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
