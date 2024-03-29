@@ -18,11 +18,13 @@ namespace TeckNews.Controllers
     {
         private readonly TelegramBotClient _bot;
         private readonly IBaseRepository<User> _userRepository;
+        private readonly IBaseRepository<UserActivity> _userActivityRepository;
 
-        public BotManagementController(IBaseRepository<User> userRepository)
+        public BotManagementController(IBaseRepository<User> userRepository, IBaseRepository<UserActivity> userActivityRepository)
         {
             _bot = new TelegramBotClient("6026122963:AAFivrrnCEbaXa8ZacZZR2SwO5KDlM4vfHI");
             _userRepository = userRepository;
+            _userActivityRepository = userActivityRepository;
         }
 
         [HttpGet("[action]")]
@@ -46,6 +48,45 @@ namespace TeckNews.Controllers
             if (update == null)
                 return Ok();
 
+            if (update.CallbackQuery != null)
+            {
+                var text = update.CallbackQuery.Data;
+                var chatId = update.CallbackQuery.From.Id;
+
+                var user = await _userRepository.Table.FirstOrDefaultAsync(x => x.ChatId == chatId);
+
+                if (user == null)
+                {
+                    user = await _userRepository.AddAsync(new User()
+                    {
+                        ChatId = chatId,
+                        FirstName = update.Message.From.FirstName,
+                        LastName = update.Message.From.LastName,
+                        Username = update.Message.From.Username,
+                        UserType = UserType.Guest,
+                        ParentId = null,
+                        UserActivities = new List<UserActivity>()
+                        {
+                            new UserActivity() { ActivityType = ActivityType.StartBot }
+                        }
+                    }, cancellationToken);
+                }
+
+                var lastActivity = _userActivityRepository.TableNoTracking.Where(x => x.UserId == user.Id).OrderByDescending(x => x.Id).First();
+
+                if (text == "Canceled")
+                {
+                    await _bot.SendTextMessageAsync(chatId, DefaultContents.PleaseRetry);
+                }
+                else if (text.StartsWith("Confirmed_"))
+                {
+                    var value = text.Split("_")[1].ToString();
+
+                    user.FirstName = value;
+                    await _userRepository.UpdateAsync(user, cancellationToken);
+                }
+            }
+
             if (update.Message != null)
             {
                 var text = update.Message.Text;
@@ -62,29 +103,110 @@ namespace TeckNews.Controllers
                         LastName = update.Message.From.LastName,
                         Username = update.Message.From.Username,
                         UserType = UserType.Guest,
-                        ParentId = null
+                        ParentId = null,
+                        UserActivities = new List<UserActivity>()
+                        {
+                            new UserActivity() { ActivityType = ActivityType.StartBot }
+                        }
                     }, cancellationToken);
                 }
 
+                var lastActivity = _userActivityRepository.TableNoTracking.Where(x => x.UserId == user.Id).OrderByDescending(x => x.Id).First();
+
                 if (text == DefaultContents.Start)
                 {
+                    await _userActivityRepository.AddAsync(new UserActivity() { UserId = user.Id, ActivityType = ActivityType.StartBot }, cancellationToken);
                     await _bot.SendTextMessageAsync(chatId, DefaultContents.WelcomeToBot, replyMarkup: GenerateMainKeyboard());
                 }
                 else if (text == DefaultContents.Location)
                 {
+                    await _userActivityRepository.AddAsync(new UserActivity() { UserId = user.Id, ActivityType = ActivityType.GetLocation }, cancellationToken);
                     await _bot.SendVenueAsync(chatId, 45.87654, 56.76543, "دفتر مرکزی", "خیابان ایکس پلاک 2");
                 }
                 else if (text == DefaultContents.ContactUs)
                 {
+                    await _userActivityRepository.AddAsync(new UserActivity() { UserId = user.Id, ActivityType = ActivityType.GetContactUs }, cancellationToken);
                     await _bot.SendTextMessageAsync(chatId, DefaultContents.ContactUsMessage);
                 }
                 else if (text == DefaultContents.Money)
                 {
+                    await _userActivityRepository.AddAsync(new UserActivity() { UserId = user.Id, ActivityType = ActivityType.GetMoney }, cancellationToken);
                     await _bot.SendTextMessageAsync(chatId, DefaultContents.MoneyMessage);
+                }
+
+                else if (text == DefaultContents.Profile)
+                {
+                    await _userActivityRepository.AddAsync(new UserActivity() { UserId = user.Id, ActivityType = ActivityType.GetProfile }, cancellationToken);
+                    await _bot.SendTextMessageAsync(chatId, string.Format(DefaultContents.ProfileDetail, user.FirstName, user.LastName ?? "___", user.Username ?? "___"), replyMarkup: GenerateProfileKeyboard());
+                }
+                else if (text == DefaultContents.BackToMainMenu)
+                {
+                    await _userActivityRepository.AddAsync(new UserActivity() { UserId = user.Id, ActivityType = ActivityType.GetProfile }, cancellationToken);
+                    await _bot.SendTextMessageAsync(chatId, DefaultContents.BackToMainMenuMessage, replyMarkup: GenerateMainKeyboard());
+                }
+                else if (text == DefaultContents.EditFirstName)
+                {
+                    await _userActivityRepository.AddAsync(new UserActivity() { UserId = user.Id, ActivityType = ActivityType.EditFirstName }, cancellationToken);
+                    await _bot.SendTextMessageAsync(chatId, DefaultContents.EditFirstNameMessage);
+                }
+
+                else
+                {
+                    if (lastActivity.ActivityType is ActivityType.EditFirstName or ActivityType.GetEditFirstNameConfirmation)
+                    {
+                        await _userActivityRepository.AddAsync(new UserActivity() { UserId = user.Id, ActivityType = ActivityType.GetEditFirstNameConfirmation }, cancellationToken);
+                        await _bot.SendTextMessageAsync(chatId, DefaultContents.EditFirstNameAlert, replyMarkup: GenerateConfirmationInlineKeyboard(text));
+                    }
                 }
             }
 
             return Ok();
+        }
+
+        private InlineKeyboardMarkup GenerateConfirmationInlineKeyboard(string text)
+        {
+            var rows = new List<InlineKeyboardButton[]>();
+
+            rows.Add(new InlineKeyboardButton[]
+            {
+                new InlineKeyboardButton(DefaultContents.Confirmed) { CallbackData = $"Confirmed_{text}" }
+            });
+
+            rows.Add(new InlineKeyboardButton[]
+            {
+                new InlineKeyboardButton(DefaultContents.Canceled) { CallbackData = "Canceled"}
+            });
+
+            var keyboard = new InlineKeyboardMarkup(rows);
+            return keyboard;
+        }
+
+        private ReplyKeyboardMarkup GenerateProfileKeyboard()
+        {
+            var rows = new List<KeyboardButton[]>();
+
+            rows.Add(new KeyboardButton[]
+            {
+                new KeyboardButton(DefaultContents.EditFirstName)
+            });
+
+            rows.Add(new KeyboardButton[]
+            {
+                new KeyboardButton(DefaultContents.EditLastName)
+            });
+
+            rows.Add(new KeyboardButton[]
+            {
+                new KeyboardButton(DefaultContents.SavedNews)
+            });
+
+            rows.Add(new KeyboardButton[]
+            {
+                new KeyboardButton(DefaultContents.BackToMainMenu)
+            });
+
+            var keyboard = new ReplyKeyboardMarkup(rows);
+            return keyboard;
         }
 
         private ReplyKeyboardMarkup GenerateMainKeyboard()

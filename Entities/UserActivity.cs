@@ -15,6 +15,14 @@ namespace TeckNews.Entities
 
     public enum ActivityType
     {
-        StartBot
+        StartBot,
+        GetLocation,
+        GetContactUs,
+        GetMoney,
+        GetProfile,
+        BackToMainMenu,
+        EditFirstName,
+        GetEditFirstNameConfirmation,
+        PleaseRetry
     }
 }

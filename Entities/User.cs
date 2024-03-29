@@ -15,6 +15,8 @@ namespace TeckNews.Entities
         public int? ParentId { get; set; }
         [ForeignKey(nameof(ParentId))]
         public User Parent { get; set; }
+
+        public ICollection<UserActivity> UserActivities { get; set; }
     }
 
     public enum UserType
