@@ -23,6 +23,9 @@ namespace TeckNews.Entities
         BackToMainMenu,
         EditFirstName,
         GetEditFirstNameConfirmation,
-        PleaseRetry
+        PleaseRetry,
+        GetHeadOfNews,
+        Search,
+        ShowSearchResult
     }
 }

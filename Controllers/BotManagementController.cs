@@ -19,12 +19,16 @@ namespace TeckNews.Controllers
         private readonly TelegramBotClient _bot;
         private readonly IBaseRepository<User> _userRepository;
         private readonly IBaseRepository<UserActivity> _userActivityRepository;
+        private readonly IBaseRepository<News> _newsRepository;
+        private readonly IBaseRepository<NewsKeyWord> _newsKeyWordsRepository;
 
-        public BotManagementController(IBaseRepository<User> userRepository, IBaseRepository<UserActivity> userActivityRepository)
+        public BotManagementController(IBaseRepository<User> userRepository, IBaseRepository<UserActivity> userActivityRepository, IBaseRepository<News> newsRepository, IBaseRepository<NewsKeyWord> newsKeyWordsRepository)
         {
             _bot = new TelegramBotClient("6026122963:AAFivrrnCEbaXa8ZacZZR2SwO5KDlM4vfHI");
             _userRepository = userRepository;
             _userActivityRepository = userActivityRepository;
+            _newsRepository = newsRepository;
+            _newsKeyWordsRepository = newsKeyWordsRepository;
         }
 
         [HttpGet("[action]")]
@@ -150,12 +154,70 @@ namespace TeckNews.Controllers
                     await _bot.SendTextMessageAsync(chatId, DefaultContents.EditFirstNameMessage);
                 }
 
+                else if (text == DefaultContents.HeadOfNews)
+                {
+                    await _userActivityRepository.AddAsync(new UserActivity() { UserId = user.Id, ActivityType = ActivityType.GetHeadOfNews }, cancellationToken);
+
+                    var today = DateTime.Now.Date;
+                    var items = await _newsRepository.TableNoTracking.Where(x => x.CreateDate.Date == today).Select(x => new { x.Id, x.Title }).Take(10).ToListAsync();
+
+                    var message = $"سرتیتر اخبار امروز {today.ToShortDateString()}\n";
+                    for (int i = 0; i < items.Count(); i++)
+                        message += $"{i + 1} - {items[i].Title}   /News_{items[i].Id}\n";
+
+                    await _bot.SendTextMessageAsync(chatId, message);
+                }
+                else if (text == DefaultContents.Search)
+                {
+                    await _userActivityRepository.AddAsync(new UserActivity() { UserId = user.Id, ActivityType = ActivityType.Search }, cancellationToken);
+                    await _bot.SendTextMessageAsync(chatId, DefaultContents.PleaseEnterYourText);
+                }
+
                 else
                 {
+                    if (text.StartsWith("/News_"))
+                    {
+                        int newsId = 0;
+                        if (int.TryParse(text.Split("_")[1], out newsId))
+                        {
+                            var news = await _newsRepository.GetByIdAsync(cancellationToken, newsId);
+                            if (news == null)
+                            {
+                                await _bot.SendTextMessageAsync(chatId, DefaultContents.NewsNotFound);
+                                return Ok();
+                            }
+
+                            var newsKeywords = await _newsKeyWordsRepository.TableNoTracking.Where(x => x.NewsId == newsId).Include(x => x.KeyWord).ToListAsync();
+
+                            string message = $"<b><i>{news.Title}</i></b>\n{news.Desc}\n\n";
+
+                            if (newsKeywords != null && newsKeywords.Any())
+                                foreach (var newsKeyword in newsKeywords)
+                                    message += $"#{newsKeyword.KeyWord.Title} ";
+
+                            await _bot.SendTextMessageAsync(chatId, message, null, ParseMode.Html);
+                        }
+                        else
+                            await _bot.SendTextMessageAsync(chatId, DefaultContents.MessageIsNotValid);
+                    }
+
                     if (lastActivity.ActivityType is ActivityType.EditFirstName or ActivityType.GetEditFirstNameConfirmation)
                     {
                         await _userActivityRepository.AddAsync(new UserActivity() { UserId = user.Id, ActivityType = ActivityType.GetEditFirstNameConfirmation }, cancellationToken);
                         await _bot.SendTextMessageAsync(chatId, DefaultContents.EditFirstNameAlert, replyMarkup: GenerateConfirmationInlineKeyboard(text));
+                    }
+                    else if (lastActivity.ActivityType == ActivityType.Search)
+                    {
+                        await _userActivityRepository.AddAsync(new UserActivity() { UserId = user.Id, ActivityType = ActivityType.ShowSearchResult }, cancellationToken);
+
+                        var items = await _newsRepository.TableNoTracking.Include(x => x.NewsKeyWords).ThenInclude(x => x.KeyWord)
+                            .Where(x => x.Title.Contains(text) || x.NewsKeyWords.Any(z => z.KeyWord.Title == text)).ToListAsync();
+
+                        var message = $"نتایج جستجو\n";
+                        for (int i = 0; i < items.Count(); i++)
+                            message += $"{i + 1} - {items[i].Title}   /News_{items[i].Id}\n";
+
+                        await _bot.SendTextMessageAsync(chatId, message);
                     }
                 }
             }

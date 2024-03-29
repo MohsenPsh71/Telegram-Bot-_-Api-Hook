@@ -52,6 +52,7 @@ namespace TeckNews.Controllers
         public async Task<ActionResult<NewsDto>> Post(NewsDto model, CancellationToken cancellationToken)
         {
             var news = _mapper.Map<News>(model);
+            news.CreateDate = DateTime.Now;
 
             string text = $"<b><i>{model.Title}</i></b>\n{model.Desc}\n\n";
 
