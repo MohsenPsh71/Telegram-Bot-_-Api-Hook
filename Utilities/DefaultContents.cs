@@ -18,6 +18,8 @@ namespace TeckNews.Utilities
         public static readonly string SavedNews = "\U0001F516 اخبار ذخیره شده".CleanString();
         public static readonly string BackToMainMenu = "\U0001F519 برگشت به منو اصلی".CleanString();
         public static readonly string BackToMainMenuMessage = "برگشت به منو اصلی".CleanString();
+        public static readonly string SaveNews = "ذخیره خبر".CleanString();
+        public static readonly string DeleteFromSavedNews = "حذف از ذخیره شده ها".CleanString();
 
         public static readonly string ProfileDetail = "نام : {0}\nنام خانوادگی: {1}\nنام کاربری:{2}".CleanString();
 

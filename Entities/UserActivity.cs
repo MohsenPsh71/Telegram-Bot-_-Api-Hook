@@ -26,6 +26,8 @@ namespace TeckNews.Entities
         PleaseRetry,
         GetHeadOfNews,
         Search,
-        ShowSearchResult
+        ShowSearchResult,
+        SaveNews,
+        UnSaveNews
     }
 }

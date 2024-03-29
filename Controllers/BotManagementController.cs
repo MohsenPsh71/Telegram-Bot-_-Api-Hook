@@ -21,14 +21,16 @@ namespace TeckNews.Controllers
         private readonly IBaseRepository<UserActivity> _userActivityRepository;
         private readonly IBaseRepository<News> _newsRepository;
         private readonly IBaseRepository<NewsKeyWord> _newsKeyWordsRepository;
+        private readonly IBaseRepository<NewsUserCollection> _newsUserCollectionRepository;
 
-        public BotManagementController(IBaseRepository<User> userRepository, IBaseRepository<UserActivity> userActivityRepository, IBaseRepository<News> newsRepository, IBaseRepository<NewsKeyWord> newsKeyWordsRepository)
+        public BotManagementController(IBaseRepository<User> userRepository, IBaseRepository<UserActivity> userActivityRepository, IBaseRepository<News> newsRepository, IBaseRepository<NewsKeyWord> newsKeyWordsRepository, IBaseRepository<NewsUserCollection> newsUserCollectionRepository)
         {
             _bot = new TelegramBotClient("6026122963:AAFivrrnCEbaXa8ZacZZR2SwO5KDlM4vfHI");
             _userRepository = userRepository;
             _userActivityRepository = userActivityRepository;
             _newsRepository = newsRepository;
             _newsKeyWordsRepository = newsKeyWordsRepository;
+            _newsUserCollectionRepository = newsUserCollectionRepository;
         }
 
         [HttpGet("[action]")]
@@ -52,29 +54,30 @@ namespace TeckNews.Controllers
             if (update == null)
                 return Ok();
 
-            if (update.CallbackQuery != null)
+            long chatId = update.CallbackQuery != null ? update.CallbackQuery.From.Id : update.Message.Chat.Id;
+
+            var user = await _userRepository.Table.FirstOrDefaultAsync(x => x.ChatId == chatId);
+
+            if (user == null)
             {
-                var text = update.CallbackQuery.Data;
-                var chatId = update.CallbackQuery.From.Id;
-
-                var user = await _userRepository.Table.FirstOrDefaultAsync(x => x.ChatId == chatId);
-
-                if (user == null)
+                user = await _userRepository.AddAsync(new User()
                 {
-                    user = await _userRepository.AddAsync(new User()
-                    {
-                        ChatId = chatId,
-                        FirstName = update.Message.From.FirstName,
-                        LastName = update.Message.From.LastName,
-                        Username = update.Message.From.Username,
-                        UserType = UserType.Guest,
-                        ParentId = null,
-                        UserActivities = new List<UserActivity>()
+                    ChatId = chatId,
+                    FirstName = update.Message.From.FirstName,
+                    LastName = update.Message.From.LastName,
+                    Username = update.Message.From.Username,
+                    UserType = UserType.Guest,
+                    ParentId = null,
+                    UserActivities = new List<UserActivity>()
                         {
                             new UserActivity() { ActivityType = ActivityType.StartBot }
                         }
-                    }, cancellationToken);
-                }
+                }, cancellationToken);
+            }
+
+            if (update.CallbackQuery != null)
+            {
+                var text = update.CallbackQuery.Data;
 
                 var lastActivity = _userActivityRepository.TableNoTracking.Where(x => x.UserId == user.Id).OrderByDescending(x => x.Id).First();
 
@@ -89,31 +92,61 @@ namespace TeckNews.Controllers
                     user.FirstName = value;
                     await _userRepository.UpdateAsync(user, cancellationToken);
                 }
+                else if (text.StartsWith("Save_"))
+                {
+                    int newsId = 0;
+                    if (int.TryParse(text.Split("_")[1], out newsId))
+                    {
+                        var news = await _newsRepository.TableNoTracking.FirstOrDefaultAsync(x => x.Id == newsId);
+                        if (news == null)
+                        {
+                            await _bot.SendTextMessageAsync(chatId, DefaultContents.NewsNotFound);
+                            return Ok();
+                        }
+
+                        await _userActivityRepository.AddAsync(new UserActivity() { UserId = user.Id, ActivityType = ActivityType.SaveNews }, cancellationToken);
+
+                        await _newsUserCollectionRepository.AddAsync(new NewsUserCollection()
+                        {
+                            NewsId = newsId,
+                            UserId = user.Id
+                        }, cancellationToken);
+
+                        string message = await GenerateMessageText(news);
+                        await _bot.EditMessageTextAsync(chatId, update.CallbackQuery.Message.MessageId, message, ParseMode.Html, replyMarkup: GenerateNewsInlineKeyboard(newsId, false));
+                    }
+                    else
+                        await _bot.SendTextMessageAsync(chatId, DefaultContents.MessageIsNotValid);
+                }
+                else if (text.StartsWith("UnSave_"))
+                {
+                    int newsId = 0;
+                    if (int.TryParse(text.Split("_")[1], out newsId))
+                    {
+                        var news = await _newsRepository.TableNoTracking.FirstOrDefaultAsync(x => x.Id == newsId);
+                        if (news == null)
+                        {
+                            await _bot.SendTextMessageAsync(chatId, DefaultContents.NewsNotFound);
+                            return Ok();
+                        }
+
+                        if (!_newsUserCollectionRepository.TableNoTracking.Any(x => x.UserId == user.Id && x.NewsId == newsId))
+                            return Ok();
+
+                        await _userActivityRepository.AddAsync(new UserActivity() { UserId = user.Id, ActivityType = ActivityType.UnSaveNews }, cancellationToken);
+
+                        string message = await GenerateMessageText(news);
+                        await _bot.EditMessageTextAsync(chatId, update.CallbackQuery.Message.MessageId, message, ParseMode.Html, replyMarkup: GenerateNewsInlineKeyboard(newsId, true));
+                        //await _bot.SendTextMessageAsync(chatId, message, ParseMode.Html, replyMarkup: GenerateNewsInlineKeyboard(newsId, false));
+                    }
+                    else
+                        await _bot.SendTextMessageAsync(chatId, DefaultContents.MessageIsNotValid);
+                }
             }
 
             if (update.Message != null)
             {
                 var text = update.Message.Text;
-                var chatId = update.Message.Chat.Id;
-
-                var user = await _userRepository.TableNoTracking.FirstOrDefaultAsync(x => x.ChatId == chatId);
-
-                if (user == null)
-                {
-                    user = await _userRepository.AddAsync(new User()
-                    {
-                        ChatId = chatId,
-                        FirstName = update.Message.From.FirstName,
-                        LastName = update.Message.From.LastName,
-                        Username = update.Message.From.Username,
-                        UserType = UserType.Guest,
-                        ParentId = null,
-                        UserActivities = new List<UserActivity>()
-                        {
-                            new UserActivity() { ActivityType = ActivityType.StartBot }
-                        }
-                    }, cancellationToken);
-                }
 
                 var lastActivity = _userActivityRepository.TableNoTracking.Where(x => x.UserId == user.Id).OrderByDescending(x => x.Id).First();
 
@@ -187,15 +220,11 @@ namespace TeckNews.Controllers
                                 return Ok();
                             }
 
-                            var newsKeywords = await _newsKeyWordsRepository.TableNoTracking.Where(x => x.NewsId == newsId).Include(x => x.KeyWord).ToListAsync();
+                            string message = await GenerateMessageText(news);
 
-                            string message = $"<b><i>{news.Title}</i></b>\n{news.Desc}\n\n";
+                            var isExistAsSavedNews = !(await _newsUserCollectionRepository.TableNoTracking.AnyAsync(x => x.NewsId == newsId && x.UserId == user.Id));
 
-                            if (newsKeywords != null && newsKeywords.Any())
-                                foreach (var newsKeyword in newsKeywords)
-                                    message += $"#{newsKeyword.KeyWord.Title} ";
-
-                            await _bot.SendTextMessageAsync(chatId, message, null, ParseMode.Html);
+                            await _bot.SendTextMessageAsync(chatId, message, null, ParseMode.Html, replyMarkup: GenerateNewsInlineKeyboard(newsId, isExistAsSavedNews));
                         }
                         else
                             await _bot.SendTextMessageAsync(chatId, DefaultContents.MessageIsNotValid);
@@ -223,6 +252,32 @@ namespace TeckNews.Controllers
             }
 
             return Ok();
+        }
+
+        private async Task<string> GenerateMessageText(News news)
+        {
+            var newsKeywords = await _newsKeyWordsRepository.TableNoTracking.Where(x => x.NewsId == news.Id).Include(x => x.KeyWord).ToListAsync();
+
+            string message = $"<b><i>{news.Title}</i></b>\n{news.Desc}\n\n";
+
+            if (newsKeywords != null && newsKeywords.Any())
+                foreach (var newsKeyword in newsKeywords)
+                    message += $"#{newsKeyword.KeyWord.Title} ";
+
+            return message;
+        }
+
+        private InlineKeyboardMarkup GenerateNewsInlineKeyboard(int newsId, bool showSaveText = true)
+        {
+            var rows = new List<InlineKeyboardButton[]>();
+
+            if (showSaveText)
+                rows.Add(new InlineKeyboardButton[] { new InlineKeyboardButton(DefaultContents.SaveNews) { CallbackData = $"Save_{newsId}" } });
+            else
+                rows.Add(new InlineKeyboardButton[] { new InlineKeyboardButton(DefaultContents.DeleteFromSavedNews) { CallbackData = $"UnSave_{newsId}" } });
+
+            var keyboard = new InlineKeyboardMarkup(rows);
+            return keyboard;
         }
 
         private InlineKeyboardMarkup GenerateConfirmationInlineKeyboard(string text)
